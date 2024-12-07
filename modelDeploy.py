@@ -773,5 +773,5 @@ def predict_routes():
 
     return jsonify({'predictions': extracted_predictions})
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)  
+# if __name__ == '__main__':
+#     app.run(debug=True, port=5001)  

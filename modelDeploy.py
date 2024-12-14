@@ -791,8 +791,8 @@ def get_route_predictions(
                 })
                 batch_indices.append((route_idx, len(batch_neighborhoods)))  # Map to route/neighborhood
                 batch_neighborhoods.append(matched_name)
-            else:
-                print(f"No match found for neighborhood: {api_name} in route: {route}")
+            # else:
+                # print(f"No match found for neighborhood: {api_name} in route: {route}")
 
     # Step 2: Create new records in batch
     if batch_create_inputs:
@@ -917,5 +917,5 @@ def predict_routes():
 
     return jsonify({'predictions': extracted_predictions})
 
-if __name__ == '__main__':
-    app.run(debug=True, port=5001)  
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=10000)

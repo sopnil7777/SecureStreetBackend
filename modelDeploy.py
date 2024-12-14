@@ -383,7 +383,7 @@ def createNewRecord(neighborhood_name, city_name, api_key, weather_list, neighbo
     return final_df
 
 
-testInput=createNewRecord(neighborhood_name="Rexdale-Kipling", city_name="Toronto", api_key=api_key, weather_list=weather_list, neighborhoodList=neighborhoodList, time_range_list=time_range_list)
+# testInput=createNewRecord(neighborhood_name="Rexdale-Kipling", city_name="Toronto", api_key=api_key, weather_list=weather_list, neighborhoodList=neighborhoodList, time_range_list=time_range_list)
 
 # print(testInput)
 
@@ -575,7 +575,7 @@ columnOrder=['Temp_C',
  'OCC_TIME_RANGE_Morning',
  'OCC_TIME_RANGE_Night']
 
-testInput = testInput[columnOrder]
+# testInput = testInput[columnOrder]
 
 df_train=pd.read_parquet('columnNeighborhood.parquet')
 
@@ -597,8 +597,8 @@ scaler = StandardScaler()
 # Assuming 'df_train' is your training DataFrame
 scaler.fit(df_train[features_to_scale])  # Fit on the training set
 
-testInput_scaled = testInput.copy()  # Copy to avoid modifying the original DataFrame
-testInput_scaled[features_to_scale] = scaler.transform(testInput_scaled[features_to_scale])
+# testInput_scaled = testInput.copy()  # Copy to avoid modifying the original DataFrame
+# testInput_scaled[features_to_scale] = scaler.transform(testInput_scaled[features_to_scale])
 
 from tensorflow.keras.models import load_model
 
@@ -606,7 +606,7 @@ from tensorflow.keras.models import load_model
 best_model = load_model('best_model.keras')
 
 # Example input data (replace with your own test data)
-input_data = testInput_scaled  # This should be the preprocessed input data for prediction
+# input_data = testInput_scaled  # This should be the preprocessed input data for prediction
 
 # Step 3: Make predictions using the model
 # predictions = best_model.predict(input_data)
@@ -621,6 +621,7 @@ input_data = testInput_scaled  # This should be the preprocessed input data for 
 # Step 4: Output the predictions
 # print(predicted_classes)  # For classification problems
 
+df_neighborhoods = neighbor_df.columns.tolist()
 
 from fuzzywuzzy import process
 
@@ -637,31 +638,126 @@ def normalize_name(name):
     name = re.sub(r'[ _]', '-', name)
     name = re.sub(r'[^\w\-]', '', name)
     return name
+# Preprocess neighborhoods into a dictionary
+preprocessed_neighborhoods = {
+    normalize_name(name): name for name in df_neighborhoods
+}
 
-def fuzzy_match_neighborhood(api_name, df_neighborhoods, normalize_func, threshold=80):
-    """
-    Matches a neighborhood name from the API to a name in the DataFrame.
-    Returns the matched name as it appears in the DataFrame columns.
-    """
+
+def fuzzy_match_neighborhood(api_name, preprocessed_neighborhoods, normalize_func, threshold=80):
+    
     normalized_name = normalize_func(api_name)
-    
-    # Create a list of tuples with the original and normalized names
-    choices = [(name, normalize_func(name)) for name in df_neighborhoods]
-    
-    # Extract the best match using only the normalized names
-    match, score = process.extractOne(normalized_name, [choice[1] for choice in choices])
-    
+    # Extract the best match using the preprocessed dictionary keys
+    match, score = process.extractOne(normalized_name, list(preprocessed_neighborhoods.keys()))
     if score >= threshold:
-        # Find and return the original name from df_neighborhoods
-        for original_name, normalized_choice in choices:
-            if normalized_choice == match:
-                return original_name  # Return the original name from the DataFrame
-    
-    return None  # Return None if no match is found
+        return preprocessed_neighborhoods[match]  # Retrieve the original name
+    return None
 
 
-df_neighborhoods = neighbor_df.columns.tolist()
-api_neighborhoods={'Leaside', 'Leaside-Bennington', 'Don Mills', 'Rosedale-Moore Park', 'Downtown Yonge', 'Henry Farm', 'Garden District', 'Rosedale', "Governor's Bridge", 'Banbury-Don Mills', 'Parkway Forest'}
+
+# api_neighborhoods={'Leaside', 'Leaside-Bennington', 'Don Mills', 'Rosedale-Moore Park', 'Downtown Yonge', 'Henry Farm', 'Garden District', 'Rosedale', "Governor's Bridge", 'Banbury-Don Mills', 'Parkway Forest'}
+
+# def get_route_predictions(
+#     routes, 
+#     df_neighborhoods, 
+#     model, 
+#     normalize_func, 
+#     scaler, 
+#     features_to_scale, 
+#     columnOrder, 
+#     threshold=80, 
+#     confidence_threshold=0.6
+# ):
+#     route_predictions = []
+#     batch_inputs = []
+#     batch_indices = []
+#     batch_neighborhoods = []
+
+#     # Step 1: Preprocess all neighborhoods and collect inputs for batch prediction
+#     for route_idx, route in enumerate(routes):
+#         for api_name in route:
+#             matched_name = fuzzy_match_neighborhood(api_name, df_neighborhoods, normalize_func, threshold)
+#             if matched_name:
+#                 input = createNewRecord(
+#                     neighborhood_name=matched_name,
+#                     city_name="Toronto",
+#                     api_key=api_key,
+#                     weather_list=weather_list,
+#                     neighborhoodList=neighborhoodList,
+#                     time_range_list=time_range_list
+#                 )
+                
+#                 input = input[columnOrder]
+#                 input_flat = input.iloc[0].to_dict()  # Flatten the DataFrame
+#                 batch_inputs.append(input_flat) 
+                
+#                 batch_indices.append((route_idx, len(batch_neighborhoods)))  # Map to route/neighborhood
+#                 batch_neighborhoods.append(matched_name)
+#             else:
+#                 print(f"No match found for neighborhood: {api_name} in route: {route}")
+
+#     # Step 2: Scale features in batch
+#     if batch_inputs:
+#         batch_inputs_df = pd.DataFrame(batch_inputs, columns=columnOrder)
+#         batch_inputs_df[features_to_scale] = scaler.transform(batch_inputs_df[features_to_scale])
+
+#         # Step 3: Perform batch predictions
+#         batch_predictions = model.predict(batch_inputs_df)
+#         batch_confidence_values = np.max(batch_predictions, axis=1)
+#         batch_predicted_classes = np.argmax(batch_predictions, axis=1)
+
+#     # Step 4: Reconstruct predictions for each route
+#     route_data = {i: {"predicted_classes": [], "confidence_values": []} for i in range(len(routes))}
+
+#     for idx, (route_idx, neighborhood_idx) in enumerate(batch_indices):
+#         predicted_class = batch_predicted_classes[idx]
+#         confidence_value = batch_confidence_values[idx]
+
+#         # Upgrade low-confidence medium risk (class 0) predictions to high risk (class 1)
+#         if predicted_class == 0 and confidence_value < confidence_threshold:
+#             predicted_class = 1
+
+#         route_data[route_idx]["predicted_classes"].append(predicted_class)
+#         route_data[route_idx]["confidence_values"].append(confidence_value)
+
+#     # Step 5: Calculate safety score and overall route class
+#     for route_idx, route in enumerate(routes):
+#         predicted_classes = route_data[route_idx]["predicted_classes"]
+#         confidence_values = route_data[route_idx]["confidence_values"]
+
+#         route_prediction = {
+#             'route': route,
+#             'predicted_classes': predicted_classes,
+#             'confidence_values': confidence_values,
+#         }
+
+#         if predicted_classes:
+#             # Calculate granular safety score
+#             weighted_risks = [
+#                 (class_ + 1) * confidence 
+#                 for class_, confidence in zip(predicted_classes, confidence_values)
+#             ]
+#             route_prediction['safety_score'] = round(sum(weighted_risks) / len(predicted_classes), 3)
+            
+#             # Determine the overall predicted class
+#             route_prediction['overall_predicted_class'] = np.argmax(np.bincount(predicted_classes))
+            
+#             # Calculate overall confidence for the overall predicted class
+#             route_prediction['overall_confidence'] = np.mean([
+#                 confidence 
+#                 for class_, confidence in zip(predicted_classes, confidence_values)
+#                 if class_ == route_prediction['overall_predicted_class']
+#             ])
+#         else:
+#             route_prediction['safety_score'] = None
+#             route_prediction['overall_predicted_class'] = None
+#             route_prediction['overall_confidence'] = None
+
+#         route_predictions.append(route_prediction)
+
+#     # Step 6: Sort routes by safety score
+#     route_predictions.sort(key=lambda x: (x['safety_score'] if x['safety_score'] is not None else float('inf')))
+#     return route_predictions
 
 def get_route_predictions(
     routes, 
@@ -675,72 +771,119 @@ def get_route_predictions(
     confidence_threshold=0.6
 ):
     route_predictions = []
+    batch_inputs = []
+    batch_indices = []
+    batch_neighborhoods = []
+    batch_create_inputs = []  # For batch processing `createNewRecord`
 
-    for route in routes:
-        route_prediction = {
-            'route': route,
-            'predicted_classes': [],
-            'confidence_values': [],
-        }
-        
+    # Step 1: Preprocess all neighborhoods and collect inputs for batch prediction
+    for route_idx, route in enumerate(routes):
         for api_name in route:
             matched_name = fuzzy_match_neighborhood(api_name, df_neighborhoods, normalize_func, threshold)
             if matched_name:
-                input = createNewRecord(
-                    neighborhood_name=matched_name,
-                    city_name="Toronto",
-                    api_key=api_key,
-                    weather_list=weather_list,
-                    neighborhoodList=neighborhoodList,
-                    time_range_list=time_range_list
-                )
-                input = input[columnOrder]
-                input_scaled = input.copy()
-                input_scaled[features_to_scale] = scaler.transform(input_scaled[features_to_scale])
-                predictions = model.predict(input_scaled)
-                confidence_values = np.max(predictions, axis=1)
-                predicted_classes = np.argmax(predictions, axis=1)
-                
-                # Upgrade low-confidence medium risk (class 0) predictions to high risk (class 1)
-                if predicted_classes[0] == 0 and confidence_values[0] < confidence_threshold:
-                    predicted_classes[0] = 1
-                
-                route_prediction['predicted_classes'].append(predicted_classes[0])
-                route_prediction['confidence_values'].append(confidence_values[0])
+                batch_create_inputs.append({
+                    "neighborhood_name": matched_name,
+                    "city_name": "Toronto",
+                    "api_key": api_key,
+                    "weather_list": weather_list,
+                    "neighborhoodList": neighborhoodList,
+                    "time_range_list": time_range_list
+                })
+                batch_indices.append((route_idx, len(batch_neighborhoods)))  # Map to route/neighborhood
+                batch_neighborhoods.append(matched_name)
             else:
                 print(f"No match found for neighborhood: {api_name} in route: {route}")
-        
-        if route_prediction['predicted_classes']:
-            # Calculate granular safety score
-            weighted_risks = [
-                (class_ + 1) * confidence 
-                for class_, confidence in zip(route_prediction['predicted_classes'], route_prediction['confidence_values'])
-            ]
-            route_prediction['safety_score'] = round(sum(weighted_risks) / len(route_prediction['predicted_classes']), 3)
-            
-            # Determine the overall predicted class
-            route_prediction['overall_predicted_class'] = np.argmax(np.bincount(route_prediction['predicted_classes']))
-            
-            # Calculate overall confidence for the overall predicted class
-            route_prediction['overall_confidence'] = np.mean([
-                confidence 
-                for class_, confidence in zip(route_prediction['predicted_classes'], route_prediction['confidence_values'])
-                if class_ == route_prediction['overall_predicted_class']
-            ])
-        
-        route_predictions.append(route_prediction)
-    
-    # Sort routes by safety score
-    route_predictions.sort(key=lambda x: x['safety_score'])
+
+    # Step 2: Create new records in batch
+    if batch_create_inputs:
+        batch_created_records = createNewRecordBatch(batch_create_inputs)  # Batch function for creating records
+        batch_created_records_df = pd.DataFrame(batch_created_records, columns=columnOrder)
+
+        # Step 3: Scale features in batch
+        batch_created_records_df[features_to_scale] = scaler.transform(batch_created_records_df[features_to_scale])
+
+        # Step 4: Perform batch predictions
+        batch_predictions = model.predict(batch_created_records_df)
+        batch_confidence_values = np.max(batch_predictions, axis=1)
+        batch_predicted_classes = np.argmax(batch_predictions, axis=1)
+
+        # Step 5: Reconstruct predictions for each route
+        route_data = {i: {"predicted_classes": [], "confidence_values": []} for i in range(len(routes))}
+
+        for idx, (route_idx, neighborhood_idx) in enumerate(batch_indices):
+            predicted_class = batch_predicted_classes[idx]
+            confidence_value = batch_confidence_values[idx]
+
+            # Upgrade low-confidence medium risk (class 0) predictions to high risk (class 1)
+            if predicted_class == 0 and confidence_value < confidence_threshold:
+                predicted_class = 1
+
+            route_data[route_idx]["predicted_classes"].append(predicted_class)
+            route_data[route_idx]["confidence_values"].append(confidence_value)
+
+        # Step 6: Calculate safety score and overall route class
+        for route_idx, route in enumerate(routes):
+            predicted_classes = route_data[route_idx]["predicted_classes"]
+            confidence_values = route_data[route_idx]["confidence_values"]
+
+            route_prediction = {
+                'route': route,
+                'predicted_classes': predicted_classes,
+                'confidence_values': confidence_values,
+            }
+
+            if predicted_classes:
+                # Calculate granular safety score
+                weighted_risks = [
+                    (class_ + 1) * confidence 
+                    for class_, confidence in zip(predicted_classes, confidence_values)
+                ]
+                route_prediction['safety_score'] = round(sum(weighted_risks) / len(predicted_classes), 3)
+                
+                # Determine the overall predicted class
+                route_prediction['overall_predicted_class'] = np.argmax(np.bincount(predicted_classes))
+                
+                # Calculate overall confidence for the overall predicted class
+                route_prediction['overall_confidence'] = np.mean([
+                    confidence 
+                    for class_, confidence in zip(predicted_classes, confidence_values)
+                    if class_ == route_prediction['overall_predicted_class']
+                ])
+            else:
+                route_prediction['safety_score'] = None
+                route_prediction['overall_predicted_class'] = None
+                route_prediction['overall_confidence'] = None
+
+            route_predictions.append(route_prediction)
+
+    # Step 7: Sort routes by safety score
+    route_predictions.sort(key=lambda x: (x['safety_score'] if x['safety_score'] is not None else float('inf')))
     return route_predictions
 
+def createNewRecordBatch(inputs):
+    """
+    Simulate batch processing for createNewRecord.
+    Each input in `inputs` should be a dictionary containing the parameters for `createNewRecord`.
+    """
+    records = []
+    for input_params in inputs:
+        record = createNewRecord(
+            neighborhood_name=input_params["neighborhood_name"],
+            city_name=input_params["city_name"],
+            api_key=input_params["api_key"],
+            weather_list=input_params["weather_list"],
+            neighborhoodList=input_params["neighborhoodList"],
+            time_range_list=input_params["time_range_list"]
+        )
+        records.append(record.iloc[0].to_dict())  # Flatten each record DataFrame to a dictionary
+    return records
 
 @app.route('/predict_routes', methods=['POST'])
 def predict_routes():
     print("Data get?")
     data = request.get_json()
     neighborhoods_by_route = data.get('neighborhoods_by_route', [])
-    # print(neighborhoods_by_route)
+    print(neighborhoods_by_route)
 
     if not neighborhoods_by_route:
         return jsonify({'error': 'No neighborhoods data received'}), 400
@@ -748,7 +891,7 @@ def predict_routes():
    
     predictions = get_route_predictions(
             routes=neighborhoods_by_route,
-            df_neighborhoods=df_neighborhoods,
+            df_neighborhoods=preprocessed_neighborhoods,
             model=best_model,
             normalize_func=normalize_name,
             scaler=scaler,
@@ -761,10 +904,11 @@ def predict_routes():
     for index, prediction in enumerate(predictions):
         route_label = f"route_{index + 1}"  # Label routes as route_1, route_2, ...
         extracted_predictions[route_label] = {
-            'overall_predicted_class': int(prediction['overall_predicted_class']),  # Convert np.int64 to int
-            'overall_confidence': float(prediction['overall_confidence']),  # Convert np.float32 to float
-            'risk_score': float(prediction['safety_score'])  # Convert np.int64 to int
+            'overall_predicted_class': int(prediction['overall_predicted_class']) if prediction['overall_predicted_class'] is not None else -1,  # Default to -1 for no prediction
+            'overall_confidence': float(prediction['overall_confidence']) if prediction['overall_confidence'] is not None else 0.0,  # Default to 0.0 for no confidence
+            'risk_score': float(prediction['safety_score']) if prediction['safety_score'] is not None else float('inf')  # Default to 'inf' for no safety score
         }
+
 
     # print(extracted_predictions)
 
@@ -773,5 +917,5 @@ def predict_routes():
 
     return jsonify({'predictions': extracted_predictions})
 
-# if __name__ == '__main__':
-#     app.run(debug=True, port=5001)  
+if __name__ == '__main__':
+    app.run(debug=True, port=5001)  

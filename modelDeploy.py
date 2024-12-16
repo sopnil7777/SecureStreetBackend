@@ -30,7 +30,7 @@ def map_weather_description(openweather_description):
     
     return weather_mapping.get(openweather_description, 'Unknown')
 
-api_key = '6070813c5939288a07857b2574c8c355'
+api_key = 'Weather_API'
 city_name = 'Toronto'
 def get_weather_by_city(api_key, city_name):
     # OpenWeatherMap API endpoint for current weather using city name

@@ -269,7 +269,6 @@ def create_neighborhood_one_hot_df(neighborhood_name, neighborhood_list):
     
     return df
 
-
 time_range_list = ['OCC_TIME_RANGE_Afternoon',
 'OCC_TIME_RANGE_Evening',
 'OCC_TIME_RANGE_Morning',
@@ -292,6 +291,8 @@ def create_time_range_one_hot_df(time_range, time_range_list):
     df = pd.DataFrame([data])
     
     return df
+
+# list of the weathers
 
 weather_list = [
     'Weather_Clear',
